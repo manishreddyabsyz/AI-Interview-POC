@@ -1,0 +1,165 @@
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.card {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+h1 {
+  color: #1f2937;
+  margin-bottom: 10px;
+  font-size: 2rem;
+}
+
+.subtitle {
+  color: #6b7280;
+  margin-bottom: 30px;
+}
+
+.upload-area {
+  margin: 30px 0;
+  padding: 40px;
+  border: 3px dashed #d1d5db;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f9fafb;
+}
+
+.upload-area:hover {
+  border-color: #667eea;
+  background: #f3f4f6;
+}
+
+.upload-area.drag-active {
+  border-color: #667eea;
+  background: #eef2ff;
+}
+
+.upload-icon {
+  font-size: 3rem;
+  margin-bottom: 10px;
+}
+
+.upload-hint {
+  color: #9ca3af;
+  margin: 10px 0;
+}
+
+.btn-secondary {
+  display: inline-block;
+  padding: 10px 24px;
+  background: #667eea;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin: 10px 0;
+}
+
+.btn-secondary:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+}
+
+.file-selected {
+  padding: 20px;
+}
+
+.file-icon {
+  font-size: 3rem;
+  color: #10b981;
+  margin-bottom: 10px;
+}
+
+.file-name {
+  font-weight: 600;
+  color: #1f2937;
+  margin: 10px 0 5px;
+}
+
+.file-size {
+  color: #6b7280;
+  font-size: 0.875rem;
+  margin-bottom: 15px;
+}
+
+.btn-remove {
+  padding: 8px 20px;
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove:hover {
+  background: #dc2626;
+}
+
+.info-text {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f0fdf4;
+  border-radius: 8px;
+}
+
+.info-text p {
+  color: #166534;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.file-types {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin-top: 5px;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 15px 0;
+}
+
+.loading {
+  color: #667eea;
+  font-size: 1.1rem;
+  padding: 20px;
+}
