@@ -33,3 +33,5 @@ class FinalReport(BaseModel):
     recommendation: str
     summary: str
     total_questions: int
+    topic_scores: Optional[Dict[str, float]] = None
+    advice: Optional[str] = None

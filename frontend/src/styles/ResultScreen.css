@@ -117,3 +117,78 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Topic scores */
+.topic-scores {
+  text-align: left;
+  margin: 25px 0;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.topic-scores h3 {
+  color: #1f2937;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+}
+
+.topic-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.topic-name {
+  width: 140px;
+  font-size: 0.875rem;
+  color: #374151;
+  flex-shrink: 0;
+}
+
+.topic-bar-bg {
+  flex: 1;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.topic-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.6s ease;
+}
+
+.topic-score {
+  width: 40px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #374151;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Advice box */
+.advice-box {
+  text-align: left;
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+
+.advice-box h3 {
+  color: #1d4ed8;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+.advice-box p {
+  color: #1e40af;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin: 0;
+}

@@ -29,4 +29,6 @@ export interface FinalReport {
   recommendation: string
   summary: string
   total_questions: number
+  topic_scores?: Record<string, number>
+  advice?: string
 }
