@@ -210,7 +210,82 @@ Return ONLY the question as plain text. No quotes, no markdown."""
         return fallbacks[len(previous) % len(fallbacks)]
 
     # ------------------------------------------------------------------ #
-    #  ANSWER EVALUATION                                                   #
+    #  BATCH ANSWER EVALUATION  (single call for all answers)             #
+    # ------------------------------------------------------------------ #
+    async def evaluate_all_answers(self, qa_history: List[Dict], resume_text: str) -> List[Dict]:
+        """
+        Evaluate all answers in ONE Gemini call.
+        Resume is sent once instead of once per answer.
+        """
+        qa_block = "\n\n".join([
+            f"Q{i+1}: {qa['question']}\nAnswer: {qa['answer']}"
+            for i, qa in enumerate(qa_history)
+        ])
+
+        prompt = f"""You are a strict technical interviewer evaluating a candidate's full interview.
+
+Candidate Resume:
+{resume_text}
+
+Below are {len(qa_history)} interview questions and the candidate's answers.
+Score each answer from 0–10 using these strict bands:
+0   — No answer, off-topic, or gibberish
+1-2 — Wrong or shows no real understanding
+3-4 — Very vague, surface-level, mostly incorrect
+5-6 — Partially correct, missing key details
+7-8 — Good, technically sound, minor gaps
+9-10 — Excellent: accurate, detailed, real hands-on experience
+
+Rules:
+- A one-sentence vague answer = 2–3 max
+- Naming a tool without explaining how = 3–4
+- Good answers explain HOW and WHY, not just WHAT
+- "No answer provided" or blank = 0
+
+{qa_block}
+
+Return ONLY a JSON array of exactly {len(qa_history)} objects (no markdown):
+[
+  {{
+    "index": 0,
+    "score": <0-10 integer>,
+    "feedback": "<2-3 sentences: what was good and what was missing>",
+    "topic": "<main technical topic of this question>",
+    "strengths": ["<one specific strength, empty list if score <= 3>"],
+    "improvements": ["<one specific improvement>"]
+  }},
+  ...
+]"""
+
+        raw = ""
+        try:
+            raw = await _call(prompt)
+            print(f"[evaluate_all] raw (400): {raw[:400]}")
+            result = _clean_json(raw)
+            if isinstance(result, list) and len(result) == len(qa_history):
+                evaluations = []
+                for item in result:
+                    evaluations.append({
+                        "score": max(0, min(10, int(item.get("score", 0)))),
+                        "feedback": item.get("feedback", ""),
+                        "topic": item.get("topic", "General"),
+                        "strengths": item.get("strengths", []),
+                        "improvements": item.get("improvements", [])
+                    })
+                return evaluations
+        except Exception as e:
+            print(f"[evaluate_all] failed: {e} | raw: {raw[:300]}")
+            print("[evaluate_all] falling back to individual evaluation")
+
+        # Fallback: evaluate individually if batch fails
+        results = []
+        for qa in qa_history:
+            ev = await self.evaluate_answer(qa["question"], qa["answer"], resume_text)
+            results.append(ev)
+        return results
+
+    # ------------------------------------------------------------------ #
+    #  SINGLE ANSWER EVALUATION  (fallback only)                          #
     # ------------------------------------------------------------------ #
     async def evaluate_answer(self, question: str, answer: str, resume_text: str) -> Dict:
         answer_clean = (answer or "").strip()

@@ -176,32 +176,22 @@ async def get_final_result(session_id: str):
         if not session.is_complete():
             raise HTTPException(400, "Interview not yet completed")
 
-        print(f"Evaluating {len(session.qa_history)} answers in parallel...")
+        print(f"Evaluating {len(session.qa_history)} answers in one batch call...")
 
-        import asyncio
+        evaluations = await gemini_service.evaluate_all_answers(
+            qa_history=session.qa_history,
+            resume_text=session.resume_text
+        )
 
-        async def eval_one(i: int, qa: dict):
-            try:
-                evaluation = await gemini_service.evaluate_answer(
-                    question=qa["question"],
-                    answer=qa["answer"],
-                    resume_text=session.resume_text
-                )
-                qa["score"] = evaluation["score"]
-                qa["feedback"] = evaluation["feedback"]
-                qa["topic"] = evaluation.get("topic", "General")
-                qa["strengths"] = evaluation.get("strengths", [])
-                qa["improvements"] = evaluation.get("improvements", [])
-                print(f"  Q{i+1} score: {qa['score']}/10 — {qa['topic']}")
-            except Exception as e:
-                print(f"  Error evaluating Q{i+1}: {e}")
-                qa["score"] = 0
-                qa["feedback"] = "Could not evaluate this answer."
-                qa["topic"] = "General"
-
-        await asyncio.gather(*[eval_one(i, qa) for i, qa in enumerate(session.qa_history)])
-
-        total_score = sum(qa["score"] for qa in session.qa_history)
+        total_score = 0
+        for i, (qa, evaluation) in enumerate(zip(session.qa_history, evaluations)):
+            qa["score"] = evaluation["score"]
+            qa["feedback"] = evaluation["feedback"]
+            qa["topic"] = evaluation.get("topic", "General")
+            qa["strengths"] = evaluation.get("strengths", [])
+            qa["improvements"] = evaluation.get("improvements", [])
+            total_score += evaluation["score"]
+            print(f"  Q{i+1} score: {qa['score']}/10 — {qa['topic']}")
         average_score = (total_score / len(session.qa_history)) * 10
         print(f"Overall score: {average_score:.1f}/100")
 
@@ -217,7 +207,20 @@ async def get_final_result(session_id: str):
             weaknesses=report["weaknesses"],
             recommendation=report["recommendation"],
             summary=report["summary"],
-            total_questions=len(session.qa_history)
+            total_questions=len(session.qa_history),
+            topic_scores=report.get("topic_scores"),
+            advice=report.get("advice"),
+            qa_history=[
+                {
+                    "question_number": qa.get("question_number", i + 1),
+                    "question": qa.get("question", ""),
+                    "answer": qa.get("answer", ""),
+                    "score": qa.get("score", 0),
+                    "feedback": qa.get("feedback", ""),
+                    "topic": qa.get("topic", "General")
+                }
+                for i, qa in enumerate(session.qa_history)
+            ]
         )
 
     except HTTPException:

@@ -26,6 +26,14 @@ class AnswerEvaluation(BaseModel):
     feedback: str
     is_last_question: bool
 
+class QAItem(BaseModel):
+    question_number: int
+    question: str
+    answer: str
+    score: int
+    feedback: str
+    topic: str
+
 class FinalReport(BaseModel):
     overall_score: float
     strengths: List[str]
@@ -35,3 +43,4 @@ class FinalReport(BaseModel):
     total_questions: int
     topic_scores: Optional[Dict[str, float]] = None
     advice: Optional[str] = None
+    qa_history: Optional[List[QAItem]] = None

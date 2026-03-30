@@ -214,12 +214,17 @@ function InterviewScreen() {
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let finalText = ''
       let interimText = ''
-      for (let i = 0; i < event.results.length; i++) {
+      // Only process NEW results from resultIndex — not all results from 0
+      // This prevents the duplication bug in Web Speech API
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i]
-        if (result.isFinal) finalText += result[0].transcript + ' '
-        else interimText += result[0].transcript
+        if (result.isFinal) {
+          finalText += result[0].transcript
+        } else {
+          interimText += result[0].transcript
+        }
       }
-      if (finalText) setAnswer(prev => (prev + ' ' + finalText).trim())
+      if (finalText) setAnswer(prev => (prev ? prev + ' ' + finalText.trim() : finalText.trim()))
       setInterimAnswer(interimText)
     }
     recognition.onerror = () => setIsRecording(false)

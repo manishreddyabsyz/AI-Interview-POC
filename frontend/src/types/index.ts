@@ -22,6 +22,15 @@ export interface AnswerEvaluation {
   is_last_question: boolean
 }
 
+export interface QAItem {
+  question_number: number
+  question: string
+  answer: string
+  score: number
+  feedback: string
+  topic: string
+}
+
 export interface FinalReport {
   overall_score: number
   strengths: string[]
@@ -31,4 +40,5 @@ export interface FinalReport {
   total_questions: number
   topic_scores?: Record<string, number>
   advice?: string
+  qa_history?: QAItem[]
 }
