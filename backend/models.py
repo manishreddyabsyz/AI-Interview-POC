@@ -15,6 +15,8 @@ class QuestionResponse(BaseModel):
     question_number: int
     question: str
     total_questions: int
+    time_limit: int          # seconds — dynamic based on difficulty
+    difficulty: str          # easy | medium | hard | scenario
 
 class AnswerSubmission(BaseModel):
     session_id: str

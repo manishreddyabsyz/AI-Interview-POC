@@ -14,6 +14,8 @@ export interface QuestionResponse {
   question_number: number
   question: string
   total_questions: number
+  time_limit: number       // dynamic seconds from backend
+  difficulty: string       // easy | medium | hard | scenario
 }
 
 export interface AnswerEvaluation {

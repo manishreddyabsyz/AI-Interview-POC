@@ -346,3 +346,85 @@
   border-radius: 20px;
   padding: 3px 10px;
 }
+
+/* ── Difficulty badge ── */
+.difficulty-badge {
+  margin-left: 12px;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #f3f4f6;
+  color: #374151;
+  font-weight: 500;
+}
+
+/* ── Question counter row ── */
+.question-counter {
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin-top: 6px;
+}
+
+/* ── SVG circular timer ── */
+.timer {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 12px auto;
+  flex-shrink: 0;
+}
+
+.timer-svg {
+  width: 80px;
+  height: 80px;
+}
+
+.timer-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1rem;
+  font-weight: 700;
+  transition: color 0.3s;
+}
+
+/* ── Speaking indicator ── */
+.speaking-indicator {
+  font-size: 0.8rem;
+  color: #7c3aed;
+  font-weight: 500;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.speaking-hint {
+  text-align: center;
+  font-size: 0.82rem;
+  color: #7c3aed;
+  margin: 4px 0 8px;
+  font-style: italic;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Word-by-word reveal cursor ── */
+.cursor-blink {
+  display: inline-block;
+  width: 2px;
+  background: #667eea;
+  margin-left: 2px;
+  animation: blink 0.7s step-end infinite;
+  vertical-align: text-bottom;
+  font-size: 1.1em;
+  color: #667eea;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
