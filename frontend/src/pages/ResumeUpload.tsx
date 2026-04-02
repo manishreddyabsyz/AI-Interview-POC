@@ -1,142 +1,183 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { uploadResume } from '../api/api'
 import '../styles/ResumeUpload.css'
 
 function ResumeUpload() {
-  const [file, setFile] = useState<File | null>(null)
-  const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string>('')
-  const [dragActive, setDragActive] = useState<boolean>(false)
+  const [resumeFile, setResumeFile] = useState<File | null>(null)
+  const [jdFile, setJdFile] = useState<File | null>(null)
+  const [jdText, setJdText] = useState('')
+  const [jdMode, setJdMode] = useState<'text' | 'file'>('text')
+  const [resumeDrag, setResumeDrag] = useState(false)
+  const [jdDrag, setJdDrag] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const resumeInputRef = useRef<HTMLInputElement>(null)
+  const jdInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0]
-      validateAndSetFile(selectedFile)
-    }
+  const validateFile = (f: File) => {
+    const valid = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+    if (!valid.includes(f.type)) return 'Only PDF or DOCX files are supported'
+    if (f.size > 10 * 1024 * 1024) return 'File must be under 10MB'
+    return null
   }
 
-  const validateAndSetFile = (selectedFile: File) => {
-    const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-    
-    if (!validTypes.includes(selectedFile.type)) {
-      setError('Please upload a PDF or DOCX file')
-      return
-    }
-
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      setError('File size must be less than 10MB')
-      return
-    }
-
-    setFile(selectedFile)
-    setError('')
+  const handleResumeDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setResumeDrag(false)
+    const f = e.dataTransfer.files[0]
+    if (!f) return
+    const err = validateFile(f)
+    if (err) { setError(err); return }
+    setResumeFile(f); setError('')
   }
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      validateAndSetFile(e.dataTransfer.files[0])
-    }
+  const handleJdDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setJdDrag(false)
+    const f = e.dataTransfer.files[0]
+    if (!f) return
+    const err = validateFile(f)
+    if (err) { setError(err); return }
+    setJdFile(f); setError('')
   }
 
   const handleUpload = async () => {
-    if (!file) {
-      setError('Please select a file')
-      return
-    }
+    if (!resumeFile) { setError('Please upload your resume'); return }
+    const hasJd = jdMode === 'text' ? jdText.trim().length > 20 : !!jdFile
+    if (!hasJd) { setError('Please provide the Job Description'); return }
 
-    setLoading(true)
-    setError('')
-
+    setLoading(true); setError('')
     try {
-      const response = await uploadResume(file)
+      const response = await uploadResume(
+        resumeFile,
+        jdMode === 'text' ? jdText : '',
+        jdMode === 'file' ? jdFile : null
+      )
       localStorage.setItem('sessionId', response.session_id)
       navigate('/start')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to upload resume')
+      setError(err.response?.data?.detail || 'Upload failed. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
-  return (
-    <div className="container">
-      <div className="card">
-        <div className="icon-large">📄</div>
-        <h1>Upload Your Resume</h1>
-        <p className="subtitle">
-          Upload your resume to start the AI-powered interview
-        </p>
+  const canSubmit = resumeFile && (jdMode === 'text' ? jdText.trim().length > 20 : !!jdFile)
 
-        <div
-          className={`upload-area ${dragActive ? 'drag-active' : ''}`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <input
-            type="file"
-            id="file-input"
-            accept=".pdf,.docx"
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-          />
-          
-          {!file ? (
-            <>
-              <div className="upload-icon">📁</div>
-              <p>Drag and drop your resume here</p>
-              <p className="upload-hint">or</p>
-              <label htmlFor="file-input" className="btn-secondary">
-                Browse Files
-              </label>
-              <p className="file-types">Supported: PDF, DOCX (Max 10MB)</p>
-            </>
+  return (
+    <div className="upload-page">
+      <div className="upload-header">
+        <div className="logo-mark">AI</div>
+        <h1>Interview Assessment</h1>
+        <p>Upload your resume and job description to begin your AI-powered technical interview</p>
+      </div>
+
+      <div className="upload-panels">
+
+        {/* Resume Panel */}
+        <div className="upload-panel">
+          <div className="panel-label">
+            <span className="panel-number">01</span>
+            <span>Resume</span>
+          </div>
+          <div
+            className={`drop-zone ${resumeDrag ? 'drag-over' : ''} ${resumeFile ? 'has-file' : ''}`}
+            onDragEnter={e => { e.preventDefault(); setResumeDrag(true) }}
+            onDragOver={e => { e.preventDefault(); setResumeDrag(true) }}
+            onDragLeave={() => setResumeDrag(false)}
+            onDrop={handleResumeDrop}
+            onClick={() => !resumeFile && resumeInputRef.current?.click()}
+          >
+            <input ref={resumeInputRef} type="file" accept=".pdf,.docx" hidden
+              onChange={e => { const f = e.target.files?.[0]; if (f) { const err = validateFile(f); if (err) setError(err); else { setResumeFile(f); setError('') } } }} />
+            {resumeFile ? (
+              <div className="file-info">
+                <div className="file-icon-check">✓</div>
+                <span className="file-name">{resumeFile.name}</span>
+                <span className="file-size">{(resumeFile.size / 1024).toFixed(0)} KB</span>
+                <button className="btn-remove" onClick={e => { e.stopPropagation(); setResumeFile(null) }}>Remove</button>
+              </div>
+            ) : (
+              <div className="drop-inner">
+                <div className="drop-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                  </svg>
+                </div>
+                <p>Drag & drop or <span className="link">browse</span></p>
+                <p className="hint">PDF or DOCX · Max 10MB</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* JD Panel */}
+        <div className="upload-panel">
+          <div className="panel-label">
+            <span className="panel-number">02</span>
+            <span>Job Description</span>
+            <div className="mode-toggle">
+              <button className={jdMode === 'text' ? 'active' : ''} onClick={() => setJdMode('text')}>Paste</button>
+              <button className={jdMode === 'file' ? 'active' : ''} onClick={() => setJdMode('file')}>File</button>
+            </div>
+          </div>
+
+          {jdMode === 'text' ? (
+            <textarea
+              className="jd-textarea"
+              placeholder="Paste the job description here…&#10;&#10;Include responsibilities, required skills, and qualifications for best results."
+              value={jdText}
+              onChange={e => setJdText(e.target.value)}
+            />
           ) : (
-            <div className="file-selected">
-              <div className="file-icon">✓</div>
-              <p className="file-name">{file.name}</p>
-              <p className="file-size">{(file.size / 1024).toFixed(2)} KB</p>
-              <button
-                className="btn-remove"
-                onClick={() => setFile(null)}
-              >
-                Remove
-              </button>
+            <div
+              className={`drop-zone ${jdDrag ? 'drag-over' : ''} ${jdFile ? 'has-file' : ''}`}
+              onDragEnter={e => { e.preventDefault(); setJdDrag(true) }}
+              onDragOver={e => { e.preventDefault(); setJdDrag(true) }}
+              onDragLeave={() => setJdDrag(false)}
+              onDrop={handleJdDrop}
+              onClick={() => !jdFile && jdInputRef.current?.click()}
+            >
+              <input ref={jdInputRef} type="file" accept=".pdf,.docx" hidden
+                onChange={e => { const f = e.target.files?.[0]; if (f) { const err = validateFile(f); if (err) setError(err); else { setJdFile(f); setError('') } } }} />
+              {jdFile ? (
+                <div className="file-info">
+                  <div className="file-icon-check">✓</div>
+                  <span className="file-name">{jdFile.name}</span>
+                  <span className="file-size">{(jdFile.size / 1024).toFixed(0)} KB</span>
+                  <button className="btn-remove" onClick={e => { e.stopPropagation(); setJdFile(null) }}>Remove</button>
+                </div>
+              ) : (
+                <div className="drop-inner">
+                  <div className="drop-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                      <polyline points="14,2 14,8 20,8"/>
+                    </svg>
+                  </div>
+                  <p>Drag & drop or <span className="link">browse</span></p>
+                  <p className="hint">PDF or DOCX · Max 10MB</p>
+                </div>
+              )}
             </div>
           )}
         </div>
-
-        {error && <div className="error">{error}</div>}
-
-        <button
-          className="btn-primary"
-          onClick={handleUpload}
-          disabled={!file || loading}
-        >
-          {loading ? 'Uploading...' : 'Upload & Continue'}
-        </button>
-
-        <div className="info-text">
-          <p>🔒 Your resume is securely stored and will only be used for this interview</p>
-        </div>
       </div>
+
+      {error && <div className="upload-error">{error}</div>}
+
+      <button className="btn-start" onClick={handleUpload} disabled={!canSubmit || loading}>
+        {loading ? (
+          <><span className="spinner" /> Analysing documents…</>
+        ) : (
+          <><span>Begin Interview</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12,5 19,12 12,19"/></svg></>
+        )}
+      </button>
+
+      <p className="upload-footer">Your documents are processed locally and never stored beyond this session</p>
     </div>
   )
 }

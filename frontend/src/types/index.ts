@@ -14,6 +14,7 @@ export interface QuestionResponse {
   question_number: number
   question: string
   total_questions: number
+  estimated_time: number
 }
 
 export interface AnswerEvaluation {

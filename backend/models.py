@@ -15,6 +15,7 @@ class QuestionResponse(BaseModel):
     question_number: int
     question: str
     total_questions: int
+    estimated_time: int = 60
 
 class AnswerSubmission(BaseModel):
     session_id: str

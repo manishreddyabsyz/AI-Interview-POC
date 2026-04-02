@@ -1,11 +1,19 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 from models import *
 from session_manager import session_manager
-from services.gemini_service import gemini_service
+from config import settings
 from utils.resume_parser import parse_resume
 from utils.cloudinary_helper import upload_resume
 import uvicorn
+
+if settings.USE_GEMINI:
+    from services.gemini_service import gemini_service as ai_service
+    print("[startup] Using Gemini as AI backend")
+else:
+    from services.ollama_service import ollama_service as ai_service
+    print(f"[startup] Using Ollama ({settings.OLLAMA_MODEL}) as AI backend")
 
 app = FastAPI(title="AI Interviewer API")
 
@@ -24,8 +32,12 @@ async def root():
 
 
 @app.post("/upload-resume", response_model=ResumeUploadResponse)
-async def upload_resume_endpoint(file: UploadFile = File(...)):
-    """Upload, parse full resume, extract skills, create session."""
+async def upload_resume_endpoint(
+    file: UploadFile = File(...),
+    jd_file: Optional[UploadFile] = File(None),
+    jd_text: str = Form("")
+):
+    """Upload resume + optional JD (file or text), extract skills, create session."""
     try:
         if not file.filename.lower().endswith(('.pdf', '.docx')):
             raise HTTPException(400, "Only PDF and DOCX files are supported")
@@ -34,22 +46,32 @@ async def upload_resume_endpoint(file: UploadFile = File(...)):
         print(f"File received: {file.filename}, size: {len(file_content)} bytes")
 
         resume_text = parse_resume(file_content, file.filename)
-        print(f"Resume parsed, text length: {len(resume_text)} chars")
-
         if not resume_text or len(resume_text) < 50:
             raise HTTPException(400, "Resume content is too short or empty")
+
+        # Parse JD — from file if provided, otherwise use pasted text
+        final_jd_text = jd_text.strip()
+        if jd_file and jd_file.filename:
+            try:
+                jd_content = await jd_file.read()
+                final_jd_text = parse_resume(jd_content, jd_file.filename)
+                print(f"JD parsed from file: {len(final_jd_text)} chars")
+            except Exception as e:
+                print(f"JD file parse failed, using text: {e}")
+        else:
+            print(f"JD from text field: {len(final_jd_text)} chars")
 
         upload_result = upload_resume(file_content, file.filename)
         print(f"Cloudinary upload: {upload_result['url']}")
 
-        # Pass full resume text — no truncation
-        skills = await gemini_service.extract_skills(resume_text)
+        skills = await ai_service.extract_skills(resume_text, final_jd_text)
         print(f"Skills extracted: {skills}")
 
         session_id = session_manager.create_session(
             resume_text=resume_text,
             resume_url=upload_result["url"],
-            skills=skills
+            skills=skills,
+            jd_text=final_jd_text
         )
 
         return ResumeUploadResponse(
@@ -68,15 +90,16 @@ async def upload_resume_endpoint(file: UploadFile = File(...)):
 
 @app.post("/start-interview", response_model=StartInterviewResponse)
 async def start_interview(session_id: str):
-    """Generate all questions from full resume context before interview starts."""
+    """Generate all questions from resume + JD context before interview starts."""
     try:
         session = session_manager.get_session(session_id)
 
-        print(f"Generating {session.total_questions} questions from full resume...")
-        questions = await gemini_service.generate_questions(
+        print(f"Generating {session.total_questions} questions from resume + JD...")
+        questions = await ai_service.generate_questions(
             resume_text=session.resume_text,
             skills=session.skills,
-            total_questions=session.total_questions
+            total_questions=session.total_questions,
+            jd_text=session.jd_text
         )
 
         session.questions_queue = questions
@@ -98,7 +121,7 @@ async def start_interview(session_id: str):
 
 @app.get("/next-question", response_model=QuestionResponse)
 async def get_next_question(session_id: str):
-    """Return the next pre-generated question."""
+    """Return the next pre-generated question with estimated answer time."""
     try:
         session = session_manager.get_session(session_id)
 
@@ -108,13 +131,16 @@ async def get_next_question(session_id: str):
         if session.current_question_number >= len(session.questions_queue):
             raise HTTPException(400, "No more questions available")
 
-        question = session.questions_queue[session.current_question_number]
-        session.current_question = question
+        q_item = session.questions_queue[session.current_question_number]
+        question_text = q_item["question"] if isinstance(q_item, dict) else q_item
+        estimated_time = q_item.get("estimated_seconds", 60) if isinstance(q_item, dict) else 60
+        session.current_question = question_text
 
         return QuestionResponse(
             question_number=session.current_question_number + 1,
-            question=question,
-            total_questions=session.total_questions
+            question=question_text,
+            total_questions=session.total_questions,
+            estimated_time=estimated_time
         )
 
     except HTTPException:
@@ -129,18 +155,13 @@ async def get_next_question(session_id: str):
 
 @app.post("/submit-answer", response_model=AnswerEvaluation)
 async def submit_answer(submission: AnswerSubmission):
-    """Store the answer as-is; evaluation happens at final-result."""
+    """Store the answer; evaluation happens at final-result."""
     try:
         session = session_manager.get_session(submission.session_id)
 
         if not hasattr(session, 'current_question') or not session.current_question:
-            return AnswerEvaluation(
-                score=0,
-                feedback="Answer recorded.",
-                is_last_question=session.is_complete()
-            )
+            return AnswerEvaluation(score=0, feedback="Answer recorded.", is_last_question=session.is_complete())
 
-        # Store full answer — no truncation
         session.add_qa(
             question=session.current_question,
             answer=submission.answer,
@@ -151,11 +172,7 @@ async def submit_answer(submission: AnswerSubmission):
         session.current_question = None
         print(f"Answer {session.current_question_number} stored ({len(submission.answer)} chars)")
 
-        return AnswerEvaluation(
-            score=0,
-            feedback="Answer recorded.",
-            is_last_question=session.is_complete()
-        )
+        return AnswerEvaluation(score=0, feedback="Answer recorded.", is_last_question=session.is_complete())
 
     except HTTPException:
         raise
@@ -169,16 +186,15 @@ async def submit_answer(submission: AnswerSubmission):
 
 @app.get("/final-result", response_model=FinalReport)
 async def get_final_result(session_id: str):
-    """Evaluate all answers with full context and generate a real personalized report."""
+    """Evaluate all answers and generate personalized report."""
     try:
         session = session_manager.get_session(session_id)
 
         if not session.is_complete():
             raise HTTPException(400, "Interview not yet completed")
 
-        print(f"Evaluating {len(session.qa_history)} answers in one batch call...")
-
-        evaluations = await gemini_service.evaluate_all_answers(
+        print(f"Evaluating {len(session.qa_history)} answers...")
+        evaluations = await ai_service.evaluate_all_answers(
             qa_history=session.qa_history,
             resume_text=session.resume_text
         )
@@ -195,7 +211,7 @@ async def get_final_result(session_id: str):
         average_score = (total_score / len(session.qa_history)) * 10
         print(f"Overall score: {average_score:.1f}/100")
 
-        report = await gemini_service.generate_final_report(
+        report = await ai_service.generate_final_report(
             qa_history=session.qa_history,
             resume_text=session.resume_text,
             total_score=average_score
@@ -210,17 +226,14 @@ async def get_final_result(session_id: str):
             total_questions=len(session.qa_history),
             topic_scores=report.get("topic_scores"),
             advice=report.get("advice"),
-            qa_history=[
-                {
-                    "question_number": qa.get("question_number", i + 1),
-                    "question": qa.get("question", ""),
-                    "answer": qa.get("answer", ""),
-                    "score": qa.get("score", 0),
-                    "feedback": qa.get("feedback", ""),
-                    "topic": qa.get("topic", "General")
-                }
-                for i, qa in enumerate(session.qa_history)
-            ]
+            qa_history=[{
+                "question_number": qa.get("question_number", i + 1),
+                "question": qa.get("question", ""),
+                "answer": qa.get("answer", ""),
+                "score": qa.get("score", 0),
+                "feedback": qa.get("feedback", ""),
+                "topic": qa.get("topic", "General")
+            } for i, qa in enumerate(session.qa_history)]
         )
 
     except HTTPException:
